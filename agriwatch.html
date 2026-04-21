@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AgriWatch — Agricultural Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f0e8;
+    --surface:#fffdf7;
+    --panel:#fff;
+    --border:#e8e0cc;
+    --accent:#2d6a2d;
+    --accent-lt:#4a9e4a;
+    --accent2:#c17a2a;
+    --accent3:#5b8fa8;
+    --warn:#c0392b;
+    --text:#1a2e1a;
+    --muted:#7a8c6a;
+    --dim:#e5ddc8;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'DM Sans',sans-serif;
+    min-height:100vh;
+  }
+
+  /* Earthy texture overlay */
+  body::before{
+    content:'';position:fixed;inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f5f0e8'/%3E%3Crect x='0' y='0' width='1' height='1' fill='%23e8dfc8' opacity='0.3'/%3E%3C/svg%3E");
+    pointer-events:none;z-index:0;
+  }
+
+  .shell{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh;}
+
+  /* ── TOPBAR ── */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 32px;height:64px;
+    background:var(--accent);
+    position:sticky;top:0;z-index:100;
+  }
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-leaf{
+    width:36px;height:36px;
+    background:rgba(255,255,255,0.15);
+    border-radius:50% 10% 50% 10%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+  }
+  .logo-name{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#fff;}
+  .logo-tag{font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase;}
+
+  .topbar-center{display:flex;gap:2px;}
+  .tab{
+    padding:6px 18px;font-size:12px;font-weight:500;
+    border-radius:6px;cursor:pointer;
+    color:rgba(255,255,255,0.6);
+    transition:all 0.2s;border:none;background:transparent;
+    font-family:'DM Sans',sans-serif;letter-spacing:0.3px;
+  }
+  .tab.active{background:rgba(255,255,255,0.15);color:#fff;}
+  .tab:hover:not(.active){color:#fff;}
+
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .season-badge{
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.2);
+    color:#fff;font-size:11px;
+    padding:4px 14px;border-radius:20px;
+    font-weight:500;letter-spacing:0.5px;
+  }
+  .avatar{
+    width:34px;height:34px;
+    background:rgba(255,255,255,0.2);
+    border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;color:#fff;cursor:pointer;
+  }
+
+  /* ── MAIN ── */
+  .main{display:flex;flex:1;}
+
+  .sidebar{
+    width:56px;background:var(--surface);
+    border-right:1px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;
+    padding:16px 0;gap:8px;
+  }
+  .nav-icon{
+    width:40px;height:40px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:all 0.2s;color:var(--muted);font-size:18px;
+  }
+  .nav-icon.active{background:rgba(45,106,45,0.1);color:var(--accent);}
+  .nav-icon:not(.active):hover{background:var(--dim);color:var(--text);}
+
+  .content{flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:22px;}
+
+  /* ── PAGE HEADER ── */
+  .page-header{display:flex;align-items:flex-end;justify-content:space-between;}
+  .page-title{
+    font-family:'Playfair Display',serif;
+    font-size:38px;font-weight:900;line-height:1;color:var(--text);
+  }
+  .page-title span{color:var(--accent);}
+  .page-sub{color:var(--muted);font-size:13px;margin-top:6px;}
+
+  .header-controls{display:flex;gap:10px;align-items:center;}
+  .select-pill{
+    background:var(--panel);border:1px solid var(--border);
+    color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;
+    padding:8px 14px;border-radius:8px;cursor:pointer;outline:none;
+  }
+  .btn{
+    background:var(--accent);color:#fff;border:none;
+    font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;
+    padding:8px 18px;border-radius:8px;cursor:pointer;
+    transition:opacity 0.2s;
+  }
+  .btn:hover{opacity:0.85;}
+
+  /* ── KPI ROW ── */
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .kpi-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;padding:22px 22px 18px;
+    position:relative;overflow:hidden;
+    transition:box-shadow 0.2s,transform 0.2s;
+    cursor:default;
+  }
+  .kpi-card:hover{box-shadow:0 4px 20px rgba(45,106,45,0.1);transform:translateY(-2px);}
+  .kpi-card::before{
+    content:'';position:absolute;
+    left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;
+  }
+  .kpi-card.green::before{background:var(--accent);}
+  .kpi-card.amber::before{background:var(--accent2);}
+  .kpi-card.blue::before{background:var(--accent3);}
+  .kpi-card.red::before{background:var(--warn);}
+
+  .kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:600;padding-left:4px;}
+  .kpi-value{
+    font-family:'Playfair Display',serif;
+    font-size:40px;font-weight:700;
+    margin:6px 0 2px;line-height:1;padding-left:4px;
+  }
+  .kpi-value.green{color:var(--accent);}
+  .kpi-value.amber{color:var(--accent2);}
+  .kpi-value.blue{color:var(--accent3);}
+  .kpi-value.red{color:var(--warn);}
+  .kpi-change{font-size:12px;font-family:'JetBrains Mono',monospace;padding-left:4px;display:flex;align-items:center;gap:4px;}
+  .kpi-change.up{color:var(--accent);}
+  .kpi-change.dn{color:var(--warn);}
+  .kpi-icon{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:34px;opacity:0.09;}
+  .sparkline{margin-top:10px;height:34px;}
+
+  /* ── GRID ── */
+  .grid-2{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px;}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .card-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:600;}
+
+  .badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
+  .b-green{background:rgba(45,106,45,0.08);color:var(--accent);border:1px solid rgba(45,106,45,0.2);}
+  .b-amber{background:rgba(193,122,42,0.08);color:var(--accent2);border:1px solid rgba(193,122,42,0.2);}
+  .b-blue{background:rgba(91,143,168,0.08);color:var(--accent3);border:1px solid rgba(91,143,168,0.2);}
+  .b-red{background:rgba(192,57,43,0.08);color:var(--warn);border:1px solid rgba(192,57,43,0.2);}
+
+  /* ── CROP ROWS ── */
+  .crop-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .crop-row:last-child{border-bottom:none;}
+  .crop-emoji{font-size:20px;width:28px;text-align:center;}
+  .crop-name{flex:1;font-size:13px;font-weight:500;}
+  .crop-region{font-size:11px;color:var(--muted);}
+  .crop-bar-wrap{width:80px;height:5px;background:var(--dim);border-radius:4px;}
+  .crop-bar{height:100%;border-radius:4px;}
+  .crop-pct{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);width:36px;text-align:right;}
+  .crop-yield{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);width:70px;text-align:right;}
+
+  /* ── FARMER TABLE ── */
+  .farmer-table{width:100%;border-collapse:collapse;}
+  .farmer-table th{text-align:left;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .farmer-table td{padding:11px 0;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .farmer-table tr:last-child td{border-bottom:none;}
+
+  .status-pill{font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;text-transform:uppercase;}
+  .s-on-track{background:rgba(45,106,45,0.08);color:var(--accent);}
+  .s-monitor{background:rgba(193,122,42,0.08);color:var(--accent2);}
+  .s-at-risk{background:rgba(192,57,43,0.08);color:var(--warn);}
+
+  .prog-wrap{width:60px;height:4px;background:var(--dim);border-radius:4px;display:inline-block;vertical-align:middle;margin-right:6px;}
+  .prog-bar{height:100%;border-radius:4px;}
+
+  /* ── ALERTS ── */
+  .alert-item{
+    display:flex;gap:12px;align-items:flex-start;
+    border:1px solid var(--border);border-radius:10px;
+    padding:12px 14px;margin-bottom:8px;
+    background:var(--surface);
+    position:relative;overflow:hidden;
+  }
+  .alert-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+  .alert-item.crit::before{background:var(--warn);}
+  .alert-item.warn::before{background:var(--accent2);}
+  .alert-item.good::before{background:var(--accent);}
+  .alert-icon{font-size:16px;margin-top:1px;}
+  .alert-title{font-size:13px;font-weight:600;color:var(--text);}
+  .alert-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+  .alert-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+
+  /* ── WEATHER ROW ── */
+  .weather-row{display:flex;gap:12px;}
+  .wx-card{
+    flex:1;background:var(--bg);border:1px solid var(--border);
+    border-radius:10px;padding:14px 16px;text-align:center;
+  }
+  .wx-day{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;}
+  .wx-icon{font-size:26px;margin-bottom:4px;}
+  .wx-temp{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--text);}
+  .wx-rain{font-size:10px;color:var(--accent3);margin-top:2px;}
+
+  /* ── FOOTER ── */
+  .footer{
+    border-top:1px solid var(--border);padding:12px 32px;
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;
+    background:var(--surface);
+  }
+  .footer-brand{color:var(--accent);font-weight:600;}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-leaf">🌿</div>
+      <div>
+        <div class="logo-name">AgriWatch</div>
+        <div class="logo-tag">Agricultural Intelligence</div>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <button class="tab active">Overview</button>
+      <button class="tab">Crop Monitoring</button>
+      <button class="tab">Farmer Registry</button>
+      <button class="tab">Weather & Soil</button>
+      <button class="tab">Impact Reports</button>
+    </div>
+    <div class="topbar-right">
+      <div class="season-badge">🌾 Dry Season 2025</div>
+      <div class="avatar">AW</div>
+    </div>
+  </header>
+
+  <div class="main">
+    <nav class="sidebar">
+      <div class="nav-icon active">🌱</div>
+      <div class="nav-icon">🗺</div>
+      <div class="nav-icon">👨‍🌾</div>
+      <div class="nav-icon">🌦</div>
+      <div class="nav-icon">📈</div>
+      <div style="flex:1"></div>
+      <div class="nav-icon">⚙</div>
+    </nav>
+
+    <main class="content">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header">
+        <div>
+          <div class="page-title">FARM <span>INTELLIGENCE</span> HUB</div>
+          <div class="page-sub">AgriWatch NGO · 12 LGAs monitored · Kaduna, Kano & Plateau States · Season 2025</div>
+        </div>
+        <div class="header-controls">
+          <select class="select-pill">
+            <option>All Regions</option>
+            <option>Kaduna</option>
+            <option>Kano</option>
+            <option>Plateau</option>
+          </select>
+          <button class="btn">↓ Export Report</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi-card green">
+          <div class="kpi-label">Farmers Reached</div>
+          <div class="kpi-value green">8,420</div>
+          <div class="kpi-change up">↑ +1,340 this season</div>
+          <div class="kpi-icon">👨‍🌾</div>
+          <canvas class="sparkline" id="spark1" height="34"></canvas>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-label">Hectares Monitored</div>
+          <div class="kpi-value amber">42,100</div>
+          <div class="kpi-change up">↑ +18% coverage</div>
+          <div class="kpi-icon">🌾</div>
+          <canvas class="sparkline" id="spark2" height="34"></canvas>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Avg Yield Increase</div>
+          <div class="kpi-value blue">34%</div>
+          <div class="kpi-change up">↑ vs. pre-program baseline</div>
+          <div class="kpi-icon">📈</div>
+          <canvas class="sparkline" id="spark3" height="34"></canvas>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">At-Risk Plots</div>
+          <div class="kpi-value red">214</div>
+          <div class="kpi-change dn">⚠ Drought stress flagged</div>
+          <div class="kpi-icon">⚠</div>
+          <canvas class="sparkline" id="spark4" height="34"></canvas>
+        </div>
+      </div>
+
+      <!-- ROW 2 -->
+      <div class="grid-2">
+
+        <!-- Seasonal yield chart -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Yield Trend vs. Rainfall — 2023–2025</span>
+            <span class="badge b-green">Per Tonne/Hectare</span>
+          </div>
+          <canvas id="mainChart" height="200"></canvas>
+        </div>
+
+        <!-- Crop mix -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Crop Distribution</span>
+            <span class="badge b-amber">12 LGAs · Season 2025</span>
+          </div>
+          <canvas id="donutChart" height="150" style="max-height:150px"></canvas>
+          <div style="margin-top:18px">
+            <div class="crop-row">
+              <div class="crop-emoji">🌽</div>
+              <div><div class="crop-name">Maize</div></div>
+              <div class="crop-bar-wrap"><div class="crop-bar" style="width:38%;background:var(--accent2)"></div></div>
+              <div class="crop-pct">38%</div>
+              <div class="crop-yield">16,200 ha</div>
+            </div>
+            <div class="crop-row">
+              <div class="crop-emoji">🫘</div>
+              <div><div class="crop-name">Soybeans</div></div>
+              <div class="crop-bar-wrap"><div class="crop-bar" style="width:27%;background:var(--accent)"></div></div>
+              <div class="crop-pct">27%</div>
+              <div class="crop-yield">11,370 ha</div>
+            </div>
+            <div class="crop-row">
+              <div class="crop-emoji">🥜</div>
+              <div><div class="crop-name">Groundnut</div></div>
+              <div class="crop-bar-wrap"><div class="crop-bar" style="width:20%;background:var(--accent3)"></div></div>
+              <div class="crop-pct">20%</div>
+              <div class="crop-yield">8,420 ha</div>
+            </div>
+            <div class="crop-row">
+              <div class="crop-emoji">🍠</div>
+              <div><div class="crop-name">Sweet Potato</div></div>
+              <div class="crop-bar-wrap"><div class="crop-bar" style="width:15%;background:#9b59b6"></div></div>
+              <div class="crop-pct">15%</div>
+              <div class="crop-yield">6,315 ha</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ROW 3 -->
+      <div class="grid-3">
+
+        <!-- Farmer status table -->
+        <div class="card" style="grid-column:span 2">
+          <div class="card-header">
+            <span class="card-title">Community Farm Clusters</span>
+            <span class="badge b-green">8 of 10 On Track</span>
+          </div>
+          <table class="farmer-table">
+            <thead>
+              <tr>
+                <th>Cluster / LGA</th>
+                <th>Crop</th>
+                <th>Farmers</th>
+                <th>Season Progress</th>
+                <th>Avg Yield</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div style="font-weight:600">Zaria North</div><div style="font-size:11px;color:var(--muted)">Kaduna State</div></td>
+                <td>🌽 Maize</td>
+                <td style="font-family:'JetBrains Mono',monospace">1,240</td>
+                <td><div class="prog-wrap"><div class="prog-bar" style="width:82%;background:var(--accent)"></div></div>82%</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12px">3.8 t/ha</td>
+                <td><span class="status-pill s-on-track">On Track</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Kano South</div><div style="font-size:11px;color:var(--muted)">Kano State</div></td>
+                <td>🫘 Soybeans</td>
+                <td style="font-family:'JetBrains Mono',monospace">980</td>
+                <td><div class="prog-wrap"><div class="prog-bar" style="width:74%;background:var(--accent)"></div></div>74%</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12px">2.9 t/ha</td>
+                <td><span class="status-pill s-on-track">On Track</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Jos Plateau</div><div style="font-size:11px;color:var(--muted)">Plateau State</div></td>
+                <td>🥜 Groundnut</td>
+                <td style="font-family:'JetBrains Mono',monospace">760</td>
+                <td><div class="prog-wrap"><div class="prog-bar" style="width:61%;background:var(--accent2)"></div></div>61%</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12px">1.6 t/ha</td>
+                <td><span class="status-pill s-monitor">Monitor</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Kaduna West</div><div style="font-size:11px;color:var(--muted)">Kaduna State</div></td>
+                <td>🌽 Maize</td>
+                <td style="font-family:'JetBrains Mono',monospace">1,100</td>
+                <td><div class="prog-wrap"><div class="prog-bar" style="width:88%;background:var(--accent)"></div></div>88%</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12px">4.1 t/ha</td>
+                <td><span class="status-pill s-on-track">On Track</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Rano LGA</div><div style="font-size:11px;color:var(--muted)">Kano State</div></td>
+                <td>🍠 Sweet Potato</td>
+                <td style="font-family:'JetBrains Mono',monospace">540</td>
+                <td><div class="prog-wrap"><div class="prog-bar" style="width:38%;background:var(--warn)"></div></div>38%</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:12px">0.9 t/ha</td>
+                <td><span class="status-pill s-at-risk">At Risk</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Alerts + Weather -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title">Field Alerts</span>
+              <span class="badge b-red">2 Critical</span>
+            </div>
+            <div>
+              <div class="alert-item crit">
+                <div class="alert-icon">🔴</div>
+                <div>
+                  <div class="alert-title">Drought Stress — Rano LGA</div>
+                  <div class="alert-desc">214 plots below soil moisture threshold. Irrigation advisory issued.</div>
+                </div>
+                <div class="alert-time">Today</div>
+              </div>
+              <div class="alert-item warn">
+                <div class="alert-icon">🟡</div>
+                <div>
+                  <div class="alert-title">Pest Activity — Jos Plateau</div>
+                  <div class="alert-desc">Fall armyworm sighting reported in 3 clusters. Scouts deployed.</div>
+                </div>
+                <div class="alert-time">2d ago</div>
+              </div>
+              <div class="alert-item good">
+                <div class="alert-icon">🟢</div>
+                <div>
+                  <div class="alert-title">Record Yield — Zaria North</div>
+                  <div class="alert-desc">Maize cluster hit 4.1 t/ha — highest in programme history.</div>
+                </div>
+                <div class="alert-time">3d ago</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weather -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">5-Day Forecast</span>
+              <span class="badge b-blue">Kaduna Zone</span>
+            </div>
+            <div class="weather-row">
+              <div class="wx-card"><div class="wx-day">Mon</div><div class="wx-icon">☀️</div><div class="wx-temp">34°C</div><div class="wx-rain">0mm</div></div>
+              <div class="wx-card"><div class="wx-day">Tue</div><div class="wx-icon">⛅</div><div class="wx-temp">31°C</div><div class="wx-rain">2mm</div></div>
+              <div class="wx-card"><div class="wx-day">Wed</div><div class="wx-icon">🌧</div><div class="wx-temp">27°C</div><div class="wx-rain">18mm</div></div>
+              <div class="wx-card"><div class="wx-day">Thu</div><div class="wx-icon">🌧</div><div class="wx-temp">26°C</div><div class="wx-rain">22mm</div></div>
+              <div class="wx-card"><div class="wx-day">Fri</div><div class="wx-icon">⛅</div><div class="wx-temp">29°C</div><div class="wx-rain">5mm</div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ROW 4: Monthly input distribution -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Input Distribution vs. Yield Performance — Monthly</span>
+          <span class="badge b-amber">Seeds · Fertiliser · Training Sessions</span>
+        </div>
+        <canvas id="stackedChart" height="100"></canvas>
+      </div>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>AgriWatch Agricultural Intelligence Platform · Season 2025</span>
+    <span>Built by <span class="footer-brand">LennaTech Innovations Enterprise Ltd</span> · Dashboard-as-a-Service</span>
+    <span>Data refreshed: April 2025</span>
+  </footer>
+
+</div>
+
+<script>
+// ─── SPARKLINES ───
+function spark(id, data, color) {
+  new Chart(document.getElementById(id).getContext('2d'), {
+    type:'line',
+    data:{ labels:data.map((_,i)=>i),
+      datasets:[{data,borderColor:color,borderWidth:2,fill:true,
+        backgroundColor:color+'22',tension:0.4,pointRadius:0}]},
+    options:{responsive:true,plugins:{legend:{display:false}},
+      scales:{x:{display:false},y:{display:false}},animation:{duration:800}}
+  });
+}
+spark('spark1',[5200,5800,6200,6500,6900,7100,7400,7800,8420],'#2d6a2d');
+spark('spark2',[28000,30000,32000,34000,36000,38000,40000,41200,42100],'#c17a2a');
+spark('spark3',[18,20,22,24,26,28,30,32,34],'#5b8fa8');
+spark('spark4',[380,340,300,280,260,240,230,220,214],'#c0392b');
+
+// ─── MAIN CHART ───
+const months = ['Jan 23','Apr 23','Jul 23','Oct 23','Jan 24','Apr 24','Jul 24','Oct 24','Jan 25','Apr 25'];
+new Chart(document.getElementById('mainChart').getContext('2d'), {
+  type:'line',
+  data:{
+    labels:months,
+    datasets:[
+      {label:'Avg Yield (t/ha)',data:[1.8,2.1,2.8,2.4,2.6,3.0,3.6,3.2,3.5,3.8],
+        borderColor:'#2d6a2d',borderWidth:2.5,fill:true,
+        backgroundColor:'rgba(45,106,45,0.07)',tension:0.4,pointRadius:3,
+        pointBackgroundColor:'#2d6a2d',yAxisID:'y'},
+      {label:'Rainfall (mm)',data:[12,45,180,60,8,55,210,70,5,38],
+        borderColor:'#5b8fa8',borderWidth:2,borderDash:[5,3],
+        fill:false,tension:0.4,pointRadius:2,pointBackgroundColor:'#5b8fa8',yAxisID:'y1'}
+    ]
+  },
+  options:{
+    responsive:true,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{labels:{color:'#7a8c6a',font:{family:'DM Sans',size:12},boxWidth:14,padding:16}},
+      tooltip:{backgroundColor:'#fff',borderColor:'#e8e0cc',borderWidth:1,
+        titleColor:'#1a2e1a',bodyColor:'#7a8c6a',
+        titleFont:{family:'Playfair Display',size:13},bodyFont:{family:'DM Sans',size:12},padding:12}
+    },
+    scales:{
+      x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#7a8c6a',font:{size:11}}},
+      y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#7a8c6a',font:{size:11}},title:{display:true,text:'t/ha',color:'#7a8c6a',font:{size:10}}},
+      y1:{position:'right',grid:{display:false},ticks:{color:'#5b8fa8',font:{size:11}},title:{display:true,text:'mm',color:'#5b8fa8',font:{size:10}}}
+    }
+  }
+});
+
+// ─── DONUT ───
+new Chart(document.getElementById('donutChart').getContext('2d'), {
+  type:'doughnut',
+  data:{
+    labels:['Maize','Soybeans','Groundnut','Sweet Potato'],
+    datasets:[{data:[38,27,20,15],
+      backgroundColor:['#c17a2a','#2d6a2d','#5b8fa8','#9b59b6'],
+      borderColor:'#fff',borderWidth:3,hoverOffset:8}]
+  },
+  options:{cutout:'66%',plugins:{legend:{display:false},
+    tooltip:{backgroundColor:'#fff',borderColor:'#e8e0cc',borderWidth:1,
+      titleColor:'#1a2e1a',bodyColor:'#7a8c6a',
+      callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}%`}}}}
+});
+
+// ─── STACKED BAR ───
+new Chart(document.getElementById('stackedChart').getContext('2d'), {
+  type:'bar',
+  data:{
+    labels:['Oct 24','Nov 24','Dec 24','Jan 25','Feb 25','Mar 25','Apr 25'],
+    datasets:[
+      {label:'Seeds Distributed (bags)',data:[1200,1400,1100,800,600,900,1350],backgroundColor:'#c17a2a',stack:'s'},
+      {label:'Fertiliser (tonnes)',data:[450,520,480,320,280,410,540],backgroundColor:'#2d6a2d',stack:'s'},
+      {label:'Training Sessions',data:[18,22,16,10,8,14,20],backgroundColor:'#5b8fa8',stack:'s'}
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{labels:{color:'#7a8c6a',font:{family:'DM Sans',size:12},boxWidth:12,padding:16}},
+      tooltip:{backgroundColor:'#fff',borderColor:'#e8e0cc',borderWidth:1,
+        titleColor:'#1a2e1a',bodyColor:'#7a8c6a',titleFont:{family:'Playfair Display',size:12},bodyFont:{family:'DM Sans',size:12}}
+    },
+    scales:{
+      x:{stacked:true,grid:{display:false},ticks:{color:'#7a8c6a',font:{size:11}}},
+      y:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#7a8c6a',font:{size:11}}}
+    }
+  }
+});
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
